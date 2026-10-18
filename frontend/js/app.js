@@ -19,13 +19,24 @@ let productModalReturn = null;
 let lastOrder = null;
 let shopFilters = { category: "", query: "", grade: "", price: "", sort: "featured" };
 let revealObserver = null;
-let productApiAvailable = true;
-let shopRequestNumber = 0;
 
 function readCart() {
   try {
     const parsed = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(item => item && typeof item === "object" && PACKS.includes(String(item.pack)))
+      .map(item => {
+        const productId = String(item.productId ?? "");
+        const quantity = Number(item.quantity);
+        return {
+          key: `${productId}::${item.pack}`,
+          productId,
+          pack: item.pack,
+          quantity
+        };
+      })
+      .filter(item => item.productId && Number.isInteger(item.quantity) && item.quantity > 0);
   } catch {
     return [];
   }
@@ -59,7 +70,8 @@ function getProduct(id) {
 }
 
 function formatCategory(category) {
-  return String(category || "").toLowerCase() === "gift" ? "Gift" : (category || "Raw");
+  const value = String(category ?? "").trim();
+  return value.toLowerCase() === "gift" ? "Gift" : (value || "Raw");
 }
 
 function productImage(product) {
@@ -101,6 +113,7 @@ function updateCartCount(pop = false) {
 
 function toast(message, isError = false) {
   const region = document.getElementById("toast-region");
+  if (!region) return;
   const item = document.createElement("div");
   item.className = `toast${isError ? " error" : ""}`;
   item.setAttribute("role", isError ? "alert" : "status");
@@ -200,18 +213,20 @@ function renderHome() {
 }
 
 function getShopProducts() {
-  const query = shopFilters.query.toLowerCase().trim();
+  const query = String(shopFilters.query ?? "").toLowerCase().trim();
   let result = products.filter(product => {
-    const categoryMatch = !shopFilters.category || formatCategory(product.category).toLowerCase() === shopFilters.category.toLowerCase();
+    const category = String(shopFilters.category ?? "");
+    const categoryMatch = !category || formatCategory(product.category).toLowerCase() === category.toLowerCase();
     const queryMatch = !query || `${product.name} ${product.category} ${product.grade}`.toLowerCase().includes(query);
-    const gradeMatch = !shopFilters.grade || String(product.grade).toUpperCase() === shopFilters.grade.toUpperCase();
+    const grade = String(shopFilters.grade ?? "");
+    const gradeMatch = !grade || String(product.grade ?? "").toUpperCase() === grade.toUpperCase();
     const price = firstPackPrice(product);
     const priceMatch = !shopFilters.price || (shopFilters.price === "under" && price < 250) || (shopFilters.price === "mid" && price >= 250 && price <= 300) || (shopFilters.price === "over" && price > 300);
     return categoryMatch && queryMatch && gradeMatch && priceMatch;
   });
   if (shopFilters.sort === "low") result.sort((a, b) => firstPackPrice(a) - firstPackPrice(b));
   if (shopFilters.sort === "high") result.sort((a, b) => firstPackPrice(b) - firstPackPrice(a));
-  if (shopFilters.sort === "name") result.sort((a, b) => a.name.localeCompare(b.name));
+  if (shopFilters.sort === "name") result.sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? "")));
   return result;
 }
 
@@ -220,7 +235,7 @@ function renderShop() {
   const categoryChips = ["All", "Raw", "Roasted", "Flavoured", "Gift"];
   return `<div class="page-enter"><section class="section"><div class="wrap">
     <div class="section-heading"><div><span class="eyebrow">Straight from Panruti</span><h1>Shop cashews</h1></div><p id="shop-count">${items.length} delicious ${items.length === 1 ? "choice" : "choices"}</p></div>
-    <div class="chips" aria-label="Filter by category">${categoryChips.map(category => `<button class="chip ${shopFilters.category.toLowerCase() === (category === "All" ? "" : category.toLowerCase()) ? "active" : ""}" type="button" data-category-chip="${category === "All" ? "" : category}">${category}</button>`).join("")}</div>
+    <div class="chips" aria-label="Filter by category">${categoryChips.map(category => `<button class="chip ${String(shopFilters.category ?? "").toLowerCase() === (category === "All" ? "" : category.toLowerCase()) ? "active" : ""}" type="button" data-category-chip="${category === "All" ? "" : category}">${category}</button>`).join("")}</div>
     <div class="shop-layout"><aside class="filter-panel"><h3>Find your perfect pack</h3><div class="filter-content">
       <div class="filter-group"><strong>Grade</strong>${[["","All grades"],["W180","W180 Jumbo"],["W240","W240"],["W320","W320"],["Broken","Broken"]].map(([value,label]) => `<label class="filter-option"><input type="radio" name="grade" value="${value}" ${shopFilters.grade === value ? "checked" : ""}> ${label}</label>`).join("")}</div>
       <div class="filter-group"><strong>Price for 250 g</strong>${[["","Any price"],["under","Under ₹250"],["mid","₹250–₹300"],["over","Over ₹300"]].map(([value,label]) => `<label class="filter-option"><input type="radio" name="price" value="${value}" ${shopFilters.price === value ? "checked" : ""}> ${label}</label>`).join("")}</div>
@@ -293,7 +308,7 @@ function authFormField(name, label, type, validate, autocomplete, extra = "") {
 
 function renderLogin() {
   return `<div class="page-enter"><section class="section"><div class="wrap auth-shell"><div class="section-heading"><span class="eyebrow">Welcome back</span><h1>Good to see you</h1><p>Your favourite Panruti cashews are just a sign-in away.</p></div>
-  <form id="login-form" class="form-card" novalidate>${authFormField("identity","Email or mobile","text","identity","username")}<div class="form-field"><label for="password">Password *</label><input class="field-control" id="password" name="password" type="password" required data-validate="password" autocomplete="current-password"><p class="field-error" aria-live="polite"></p></div><p class="form-server-error" role="alert" hidden></p><label class="filter-option"><input type="checkbox" name="remember"> Remember me</label><button class="button form-submit" type="submit">Login</button><p class="auth-foot">New to Santhi Cashew? <a href="#/register">Create an account</a></p></form></div></section></div>`;
+  <form id="login-form" class="form-card" novalidate><p class="auth-foot">Frontend demo only: passwords are not verified and this is not secure authentication.</p>${authFormField("identity","Email or mobile","text","identity","username")}<div class="form-field"><label for="password">Password *</label><input class="field-control" id="password" name="password" type="password" required data-validate="password" autocomplete="current-password"><p class="field-error" aria-live="polite"></p></div><p class="form-server-error" role="alert" hidden></p><label class="filter-option"><input type="checkbox" name="remember"> Remember me</label><button class="button form-submit" type="submit">Login</button><p class="auth-foot">New to Santhi Cashew? <a href="#/register">Create an account</a></p></form></div></section></div>`;
 }
 
 function renderRegister() {
@@ -305,7 +320,7 @@ function renderRegister() {
     ${field("address","Address","text",{full:true,autocomplete:"street-address",attrs:'data-validate="address"'})}
     ${field("city","City","text",{autocomplete:"address-level2",attrs:'data-validate="city"'})}${field("pincode","Pincode","text",{autocomplete:"postal-code",attrs:'data-validate="pincode" inputmode="numeric" maxlength="6"'})}
     ${field("state","State","select-state",{attrs:'data-validate="state"'})}
-  </div><div class="form-field" style="margin-top:12px"><label class="filter-option"><input id="terms" name="terms" type="checkbox" required data-validate="terms"> I agree to the terms and privacy policy *</label><p class="field-error" aria-live="polite"></p></div>
+  </div><p class="auth-foot">Frontend demo only: account details are stored in this browser; passwords are not saved or verified.</p><div class="form-field" style="margin-top:12px"><label class="filter-option"><input id="terms" name="terms" type="checkbox" required data-validate="terms"> I agree to the terms and privacy policy *</label><p class="field-error" aria-live="polite"></p></div>
   <p class="form-server-error" role="alert" hidden></p><button class="button form-submit" type="submit">Create account</button><p class="auth-foot">Already have an account? <a href="#/login">Login</a></p></form></div></section></div>`;
 }
 
@@ -415,47 +430,10 @@ function bindShopPage() {
 async function filterAndRenderShop() {
   const results = document.getElementById("shop-results");
   if (!results) return;
-  const requestNumber = ++shopRequestNumber;
-  if (!productApiAvailable) {
-    const localResults = getShopProducts();
-    const count = document.getElementById("shop-count");
-    if (count) count.textContent = `${localResults.length} delicious ${localResults.length === 1 ? "choice" : "choices"}`;
-    results.innerHTML = productGrid(localResults);
-    return;
-  }
-  results.innerHTML = `<div class="loading-state">Finding your favourites…</div>`;
-  const sortValues = { featured:"", low:"lo", high:"hi", name:"az" };
-  const filters = {
-    category:shopFilters.category,
-    grade:shopFilters.grade,
-    q:shopFilters.query,
-    min_price:shopFilters.price === "mid" ? 250 : shopFilters.price === "over" ? 301 : undefined,
-    max_price:shopFilters.price === "under" ? 249 : shopFilters.price === "mid" ? 300 : undefined,
-    sort:sortValues[shopFilters.sort]
-  };
-  try {
-    const filtered = await getProducts(filters);
-    if (!results.isConnected || requestNumber !== shopRequestNumber) return;
-    const mapped = filtered.map((product, index) => {
-      const fallback = LOCAL_PRODUCTS.find(item => item.name === product.name) || LOCAL_PRODUCTS[index % LOCAL_PRODUCTS.length];
-      const prices = Array.isArray(product.p)
-        ? Object.fromEntries(product.p.map(pack => [pack.size, pack.price]))
-        : product.prices || fallback.prices;
-      return { ...fallback, ...product, id:productId(product), prices, reviews:product.review_count ?? product.reviews ?? fallback.reviews };
-    });
-    products = [...new Map([...products, ...mapped].map(product => [productId(product), product])).values()];
-    const count = document.getElementById("shop-count");
-    if (count) count.textContent = `${mapped.length} delicious ${mapped.length === 1 ? "choice" : "choices"}`;
-    results.innerHTML = productGrid(mapped);
-  } catch (error) {
-    if (requestNumber !== shopRequestNumber) return;
-    productApiAvailable = false;
-    const localResults = getShopProducts();
-    const count = document.getElementById("shop-count");
-    if (count) count.textContent = `${localResults.length} delicious ${localResults.length === 1 ? "choice" : "choices"}`;
-    results.innerHTML = productGrid(localResults);
-    toast(`Showing the available cashew list. ${error.message}`, true);
-  }
+  const filtered = getShopProducts();
+  const count = document.getElementById("shop-count");
+  if (count) count.textContent = `${filtered.length} delicious ${filtered.length === 1 ? "choice" : "choices"}`;
+  results.innerHTML = productGrid(filtered);
 }
 
 function addToCart(product, pack = "250 g", quantity = 1) {
@@ -478,14 +456,13 @@ function addToCart(product, pack = "250 g", quantity = 1) {
 function migrateCartProductIds() {
   let changed = false;
   cart = cart.filter(item => {
-    const localProduct = LOCAL_PRODUCTS.find(product => product.id === String(item.productId));
+    const currentId = String(item.productId);
+    const localProduct = LOCAL_PRODUCTS.find(product => product.id === currentId)
+      || (/^\d+$/.test(currentId) ? LOCAL_PRODUCTS[Number(currentId) - 1] : null);
     if (localProduct) {
-      const apiProduct = products.find(product => product.name === localProduct.name);
-      if (apiProduct) {
-        item.productId = productId(apiProduct);
-        item.key = `${item.productId}::${item.pack}`;
-        changed = true;
-      }
+      item.productId = productId(localProduct);
+      item.key = `${item.productId}::${item.pack}`;
+      changed ||= item.productId !== currentId;
     }
     const exists = Boolean(getProduct(item.productId));
     if (!exists) changed = true;
@@ -528,21 +505,23 @@ function formValue(form, name) {
 }
 
 function validationMessage(input) {
-  const value = input.type === "checkbox" ? input.checked : input.value.trim();
+  if (!input) return "This field is unavailable.";
+  const inputValue = String(input.value ?? "");
+  const value = input.type === "checkbox" ? input.checked : inputValue.trim();
   const rule = input.dataset.validate;
   if (input.required && !value) return "This field is required.";
   if (!value && !input.required) return "";
-  if (rule === "name" && input.value.trim().length < 3) return "Please enter at least 3 characters.";
-  if (rule === "mobile" && !/^[6-9]\d{9}$/.test(input.value.trim())) return "Enter a valid 10-digit Indian mobile number.";
-  if (rule === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(input.value.trim())) return "Enter a valid email address.";
-  if (rule === "identity" && !(/^[6-9]\d{9}$/.test(input.value.trim()) || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(input.value.trim()))) return "Enter a valid email address or 10-digit mobile number.";
-  if (rule === "password" && input.value.length < 8) return "Password must be at least 8 characters.";
-  if (rule === "confirm" && input.value !== document.getElementById("register-form")?.elements.password.value) return "Passwords do not match.";
-  if (rule === "address" && input.value.trim().length < 5) return "Address must be at least 5 characters.";
-  if (rule === "city" && input.value.trim().length < 2) return "City must be at least 2 characters.";
-  if (rule === "pincode" && !/^\d{6}$/.test(input.value.trim())) return "Enter a 6-digit pincode.";
+  if (rule === "name" && inputValue.trim().length < 3) return "Please enter at least 3 characters.";
+  if (rule === "mobile" && !/^[6-9]\d{9}$/.test(inputValue.trim())) return "Enter a valid 10-digit Indian mobile number.";
+  if (rule === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(inputValue.trim())) return "Enter a valid email address.";
+  if (rule === "identity" && !(/^[6-9]\d{9}$/.test(inputValue.trim()) || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(inputValue.trim()))) return "Enter a valid email address or 10-digit mobile number.";
+  if (rule === "password" && inputValue.length < 8) return "Password must be at least 8 characters.";
+  if (rule === "confirm" && inputValue !== String(document.getElementById("register-form")?.elements.password?.value ?? "")) return "Passwords do not match.";
+  if (rule === "address" && inputValue.trim().length < 5) return "Address must be at least 5 characters.";
+  if (rule === "city" && inputValue.trim().length < 2) return "City must be at least 2 characters.";
+  if (rule === "pincode" && !/^\d{6}$/.test(inputValue.trim())) return "Enter a 6-digit pincode.";
   if (rule === "state" && !input.value) return "Please select a state.";
-  if (rule === "upi" && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(input.value.trim())) return "Enter a valid UPI ID, such as name@bank.";
+  if (rule === "upi" && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(inputValue.trim())) return "Enter a valid UPI ID, such as name@bank.";
   if (rule === "terms" && !input.checked) return "Please accept the terms to continue.";
   return "";
 }
@@ -589,41 +568,21 @@ function bindFormValidation(form) {
 async function prefillCheckout() {
   const form = document.getElementById("checkout-form");
   if (!form || !localStorage.getItem("sc_token")) return;
-  try {
-    userProfile = await getProfile();
-    renderAuthLinks();
-    const profile = userProfile;
-    ["name", "mobile", "address", "city", "pincode", "state"].forEach(key => {
-      const input = form.elements.namedItem(key);
-      const value = profile[key] ?? profile.phone ?? "";
-      if (input && value) input.value = value;
-    });
-  } catch (error) {
-    if (!localStorage.getItem("sc_token")) {
-      sessionStorage.setItem("sc_redirect_after_login", "#/checkout");
-      location.hash = "#/login";
-      return;
-    }
-    toast(`Could not load your saved details: ${error.message}`, true);
-  }
+  userProfile = getStoredUser();
+  renderAuthLinks();
+  ["name", "mobile", "address", "city", "pincode", "state"].forEach(key => {
+    const input = form.elements.namedItem(key);
+    const value = userProfile?.[key] ?? "";
+    if (input && value) input.value = value;
+  });
 }
 
 async function loadOrders() {
   const container = document.getElementById("orders-list");
-  try {
-    const orders = await getMyOrders();
-    if (!container?.isConnected) return;
-    container.className = "";
-    container.innerHTML = orders.length ? orders.map(orderCard).join("") : `<div class="empty-state"><p>No orders yet. Let's find your first favourite.</p><a class="button" href="#/shop">Shop cashews</a></div>`;
-  } catch (error) {
-    if (!localStorage.getItem("sc_token")) {
-      sessionStorage.setItem("sc_redirect_after_login", "#/orders");
-      location.hash = "#/login";
-      return;
-    }
-    if (container?.isConnected) container.innerHTML = `<div class="empty-state" role="alert"><p>We couldn't load your orders. ${safe(error.message)}</p><button class="button ghost" type="button" data-retry-orders>Try again</button></div>`;
-    toast(`Couldn't load your orders: ${error.message}`, true);
-  }
+  const orders = await getMyOrders();
+  if (!container?.isConnected) return;
+  container.className = "";
+  container.innerHTML = orders.length ? orders.map(orderCard).join("") : `<div class="empty-state"><p>No orders yet. Let's find your first favourite.</p><a class="button" href="#/shop">Shop cashews</a></div>`;
 }
 
 async function handleLogin(form) {
@@ -663,7 +622,7 @@ async function handleCheckout(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   const orderData = {
     shipping: { name:data.name, mobile:data.mobile, address:data.address, city:data.city, pincode:data.pincode, state:data.state },
-    items: cart.map(item => ({ product_id:Number(item.productId), size:item.pack, qty:item.quantity })),
+    items: cart.map(item => ({ product_id:item.productId, size:item.pack, qty:item.quantity })),
     payment_method:data.payment,
     ...(data.payment === "UPI" ? { upi_id:data.upiId } : {})
   };
@@ -678,7 +637,13 @@ async function handleCheckout(form) {
 
 async function handleNewsletter(form) {
   if (!form.reportValidity()) return;
-  await subscribeNewsletter(form.elements.email.value.trim());
+  const emailInput = form.elements.namedItem("email");
+  const email = String(emailInput?.value ?? "").trim();
+  if (!email) {
+    toast("Enter an email address to subscribe.", true);
+    return;
+  }
+  await subscribeNewsletter(email);
   form.reset();
   toast("You're on the list. Thanks for joining us!");
 }
@@ -838,8 +803,8 @@ function bindGlobalEvents() {
     if (!(form instanceof HTMLFormElement)) return;
     if (form.id === "header-search") {
       event.preventDefault();
-      shopFilters.query = document.getElementById("header-query").value;
-      shopFilters.category = document.getElementById("header-category").value;
+      shopFilters.query = String(document.getElementById("header-query")?.value ?? "");
+      shopFilters.category = String(document.getElementById("header-category")?.value ?? "");
       location.hash = `#/shop${shopFilters.category ? `?category=${encodeURIComponent(shopFilters.category)}` : ""}`;
     } else if (["login-form", "register-form", "checkout-form"].includes(form.id)) {
       event.preventDefault();
@@ -948,37 +913,9 @@ async function init() {
   initTheme();
   bindGlobalEvents();
   if (localStorage.getItem("sc_token")) userProfile = getStoredUser();
+  products = LOCAL_PRODUCTS.map(product => ({ ...product, prices: { ...product.prices } }));
+  migrateCartProductIds();
   renderAuthLinks();
-  try {
-    const apiProducts = await getProducts();
-    products = apiProducts.map((product, index) => {
-      const fallback = LOCAL_PRODUCTS.find(item => item.id === String(product.id) || item.name === product.name) || LOCAL_PRODUCTS[index % LOCAL_PRODUCTS.length];
-      const priceData = Array.isArray(product.p)
-        ? Object.fromEntries(product.p.map(pack => [pack.size, pack.price]))
-        : product.prices || product.pricing || (product.price ? { "250 g":product.price } : fallback.prices);
-      return {
-        ...fallback,
-        ...product,
-        id:productId(product),
-        category:formatCategory(product.category || fallback.category),
-        grade:product.grade || fallback.grade,
-        prices:priceData,
-        reviews:product.review_count ?? product.reviews ?? fallback.reviews
-      };
-    });
-    migrateCartProductIds();
-  } catch (error) {
-    productApiAvailable = false;
-    products = LOCAL_PRODUCTS.map(product => ({ ...product }));
-    toast(`Showing our local catalogue. ${error.message}`, true);
-  }
-  if (localStorage.getItem("sc_token")) {
-    try {
-      userProfile = await getProfile();
-    } catch (error) {
-      if (localStorage.getItem("sc_token")) toast(`Couldn't refresh your profile: ${error.message}`, true);
-    }
-  }
   renderAuthLinks();
   renderPage();
 }

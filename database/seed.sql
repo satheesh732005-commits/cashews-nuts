@@ -36,3 +36,4 @@ ON DUPLICATE KEY UPDATE
   review_count = VALUES(review_count),
   image_url = VALUES(image_url),
   is_active = TRUE;
+    
