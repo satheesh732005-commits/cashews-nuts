@@ -1,40 +1,16 @@
-\# Santhi Cashews E-Commerce Website
+# Santhi Cashew Storefront
 
+A frontend-only cashew storefront built with HTML, CSS, and browser-side JavaScript.
 
+## Run locally
 
-A responsive cashew nuts e-commerce website built using HTML, CSS, JavaScript, and Bootstrap 5, with a Python backend and MySQL database.
+Open `frontend/index.html` in a browser, or serve the `frontend` directory with any static file server and open its URL. Product catalogue data is included in the frontend. Cart, demo account, orders, and newsletter subscriptions are stored only in the current browser's `localStorage`.
 
+This is a demonstration storefront: it has no server, database connection, secure authentication, or real payment/order processing. Do not enter real passwords or payment details.
 
+## Structure
 
-\## Features
-
-\- Responsive user interface
-
-\- Cashew product listings
-
-\- Python backend integration
-
-\- MySQL database connectivity
-
-
-
-\## Technologies Used
-
-\- HTML
-
-\- CSS
-
-\- JavaScript
-
-\- Bootstrap 5
-
-\- Python
-
-\- MySQL
-
-
-
-\## Project Purpose
-
-To provide a user-friendly online platform for exploring and managing cashew products.
-
+- `frontend/index.html` — storefront page.
+- `frontend/css/` — stylesheets.
+- `frontend/js/` — storefront logic and browser-local demo data.
+- `frontend/assets/` — product and brand images.
