@@ -22,17 +22,22 @@ def create_app():
         raise RuntimeError("Set a private JWT_SECRET_KEY in backend/.env before starting the API.")
     app = Flask(__name__)
     app.config.from_object(Config)
+    allowed_origins = [
+        "null",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:5000",
+        "http://localhost:5000",
+    ]
+    for origin in Config.CORS_ORIGINS.split(","):
+        origin = origin.strip()
+        if origin and origin not in allowed_origins:
+            allowed_origins.append(origin)
     CORS(
         app,
         resources={
             r"/api/*": {
-                "origins": [
-                    "null",
-                    "http://127.0.0.1:5500",
-                    "http://localhost:5500",
-                    "http://127.0.0.1:5000",
-                    "http://localhost:5000",
-                ]
+                "origins": allowed_origins
             }
         },
         allow_headers=["Content-Type", "Authorization", "ADMIN_KEY"],

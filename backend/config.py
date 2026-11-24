@@ -17,6 +17,8 @@ class Config:
     DB_PASSWORD = os.getenv("DB_PASSWORD", "")
     DB_NAME = os.getenv("DB_NAME", "santhi_cashew")
     DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+    DB_SSL = int(os.getenv("DB_SSL", "0"))
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
         hours=int(os.getenv("JWT_ACCESS_TOKEN_HOURS", "12"))

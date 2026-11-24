@@ -18,6 +18,9 @@ def get_connection():
     if _pool is None:
         with _pool_lock:
             if _pool is None:
+                pool_options = {}
+                if Config.DB_SSL == 1:
+                    pool_options["ssl_disabled"] = False
                 _pool = pooling.MySQLConnectionPool(
                     pool_name="santhi_cashew_pool",
                     pool_size=Config.DB_POOL_SIZE,
@@ -30,6 +33,7 @@ def get_connection():
                     charset="utf8mb4",
                     collation="utf8mb4_unicode_ci",
                     autocommit=False,
+                    **pool_options,
                 )
     return _pool.get_connection()
 
