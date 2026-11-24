@@ -162,7 +162,7 @@ function productCard(product) {
   const mrp = Math.round(price / .85);
   const stockLabel = stock === 0 ? "Out of stock" : stock < 10 ? `Only ${stock} left` : "In stock";
   const stockClass = stock === 0 ? "out" : stock < 10 ? "low" : "";
-  return `<article class="product-card tilt-card" data-product="${safe(id)}">
+  return `<article class="product-card tilt-card reveal" data-product="${safe(id)}">
     <button class="product-open" type="button" data-open-product="${safe(id)}" aria-label="View ${safe(product.name)}"></button>
     <div class="product-visual"><span class="product-badge">${safe(formatCategory(product.category))} · ${safe(product.grade || "W320")}</span>${productImage(product)}<span class="stock-badge ${stockClass}">${stockLabel}</span></div>
     <div class="product-info"><div class="rating" aria-label="${safe(product.rating || 4.8)} out of 5 stars">★★★★★ <span>${safe(product.rating || "4.8")} (${safe(product.reviews || 0)})</span></div>
@@ -181,10 +181,10 @@ function productGrid(items, emptyText = "No cashews match those filters. Try cha
 function renderHome() {
   const bestsellers = products.slice(0, 4);
   return `<div class="page-enter">
-    <section class="hero"><div class="wrap hero-grid">
-      <div><span class="eyebrow">From Panruti, with care</span><h1>Crunch into <em>pure, creamy</em> cashews</h1>
-        <p class="hero-copy">Hand-graded kernels from the orchards of Tamil Nadu, vacuum packed the day they are roasted.</p>
-        <div class="hero-actions"><a class="button" href="#/shop">Shop Now <span aria-hidden="true">→</span></a><a class="button alt" href="#/register">Join Us</a></div>
+    <section class="hero reveal"><div class="wrap hero-grid">
+      <div><span class="eyebrow">From Panruti, with care</span><h1>Premium Cashews. <em>Naturally Delicious.</em></h1>
+        <p class="hero-copy">Discover carefully selected, fresh and premium quality cashews.</p>
+        <div class="hero-actions"><a class="button" href="#/shop">Explore Products <span aria-hidden="true">→</span></a><a class="button alt" href="#/shop">Shop Now</a></div>
       </div>
       <div class="hero-stage" aria-label="A bowl of premium cashews">
         <div class="hero-image-shell" id="hero-parallax"><img src="assets/cashew-product.png" alt="Fresh, creamy Panruti cashews"></div>
@@ -208,7 +208,7 @@ function renderHome() {
       <blockquote class="feature reveal"><div class="rating">★★★★★</div><p>“Beautifully packed and delivered quickly. The pepper masala is a favourite.”</p><strong>— Arjun K.</strong></blockquote>
       <blockquote class="feature reveal"><div class="rating">★★★★★</div><p>“The quality is lovely, and the gift box made a perfect festive surprise.”</p><strong>— Divya S.</strong></blockquote></div>
     </div></section>
-    <section class="section tight"><div class="wrap newsletter"><div><h2>A fresh little note from us</h2><p>New harvests, good recipes and a little crunch in your inbox.</p></div><form id="newsletter-form" class="newsletter-form"><label class="sr-only" for="newsletter-email">Email address</label><input id="newsletter-email" name="email" type="email" placeholder="Your email address" required><button class="button" type="submit">Subscribe</button></form></div></section>
+    <section class="section tight"><div class="wrap newsletter reveal"><div><h2>A fresh little note from us</h2><p>New harvests, good recipes and a little crunch in your inbox.</p></div><form id="newsletter-form" class="newsletter-form"><label class="sr-only" for="newsletter-email">Email address</label><input id="newsletter-email" name="email" type="email" placeholder="Your email address" required><button class="button" type="submit">Subscribe</button></form></div></section>
   </div>`;
 }
 
@@ -415,7 +415,10 @@ function setupReveals() {
       revealObserver.unobserve(entry.target);
     }
   }), { threshold:.12 });
-  items.forEach(item => revealObserver.observe(item));
+  items.forEach((item, index) => {
+    item.style.setProperty("--motion-delay", `${Math.min(index % 6, 5) * 55}ms`);
+    revealObserver.observe(item);
+  });
 }
 
 function bindShopPage() {
@@ -434,6 +437,7 @@ async function filterAndRenderShop() {
   const count = document.getElementById("shop-count");
   if (count) count.textContent = `${filtered.length} delicious ${filtered.length === 1 ? "choice" : "choices"}`;
   results.innerHTML = productGrid(filtered);
+  setupReveals();
 }
 
 function addToCart(product, pack = "250 g", quantity = 1) {
@@ -450,6 +454,16 @@ function addToCart(product, pack = "250 g", quantity = 1) {
   if (current) current.quantity += quantity;
   else cart.push({ key, productId: productId(product), pack, quantity });
   persistCart();
+  const quickAdd = document.querySelector(`[data-quick-add="${CSS.escape(productId(product))}"]`);
+  if (quickAdd) {
+    quickAdd.classList.add("is-added");
+    const originalLabel = quickAdd.textContent;
+    quickAdd.textContent = "Added";
+    window.setTimeout(() => {
+      quickAdd.classList.remove("is-added");
+      if (quickAdd.isConnected) quickAdd.textContent = originalLabel;
+    }, 900);
+  }
   toast("Added to cart");
 }
 
